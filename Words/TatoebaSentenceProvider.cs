@@ -1,21 +1,33 @@
-﻿using RussianWordScraper.Document;
+﻿
+using Microsoft.Extensions.Logging;
+using RussianWordScraper.Document;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Words
 {
     public class TatoebaSentenceProvider : ISentenceProvider
     {
+        private readonly ILogger _logger;
+        private readonly IServiceProvider _serviceProvider;
+        public TatoebaSentenceProvider(ILogger<TatoebaSentenceProvider> logger, IServiceProvider serviceProvider) {
+            _logger = logger;
+            _serviceProvider = serviceProvider;
+        }
         public async Task<List<Sample>> GetSentences(WordForm word)
         {
+            _logger.LogInformation($"Getting sentences from Tatoeba for word: {word.Word}");
             var samples = new List<Sample>();
             int pageIndex = 1;
             while (pageIndex < 50)
             {
-                var page = await (new Composition { Return = new ContentSegment { Url = $"https://tatoeba.org/eng/sentences/search/page:{pageIndex}?query=%3D{word.Word}&from=rus&to=eng&orphans=no&unapproved=no&list=&has_audio=&trans_filter=limit&trans_to=und&sort=words" } }).Return.DocumentElement();
+                var contentSegment = _serviceProvider.GetRequiredService<ContentSegment>();
+                contentSegment.Url = $"https://tatoeba.org/eng/sentences/search/page:{pageIndex}?query=%3D{word.Word}&from=rus&to=eng&orphans=no&unapproved=no&list=&has_audio=&trans_filter=limit&trans_to=und&sort=words";
+                var page = await (new Composition { Return = contentSegment }).Return.DocumentElement();
                 if (page[0].QuerySelector("p.error") != null)
                     break;
                 var sentenceDivs = page.QuerySelectorAll("div.sentence-and-translations");

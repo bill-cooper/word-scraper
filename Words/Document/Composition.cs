@@ -1,6 +1,7 @@
 ﻿using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Dom.Html;
+using AngleSharp.Network;
 using AngleSharp.Parser.Html;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,10 @@ namespace RussianWordScraper.Document
 
     public class ContentSegment
     {
+        private readonly IRequester _requester;
+        public ContentSegment(IRequester requester) {
+            _requester = requester;
+        }
         public string Name = Guid.NewGuid().ToString();
         public string Url { get; set; }
         public string Select { get; set; }
@@ -37,7 +42,7 @@ namespace RussianWordScraper.Document
             }
             else if (!string.IsNullOrWhiteSpace(Url))
             {
-                container = await BrowsingContext.New(Configuration.Default.WithDefaultLoader(requesters: new[] { new CacheEnabledRequester(new SecretProvider()) })).OpenAsync(Url);
+                container = await BrowsingContext.New(Configuration.Default.WithDefaultLoader(requesters: new[] { _requester })).OpenAsync(Url);
             }
             else
                 throw new Exception("no source");

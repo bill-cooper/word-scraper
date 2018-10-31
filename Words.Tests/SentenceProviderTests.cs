@@ -16,8 +16,8 @@ namespace Words.Tests
 
             var word =  new WordForm { Word = "учиться" };
 
-            var sentenceProvider = new TatoebaSentenceProvider();
-            var sentences = await sentenceProvider.GetSentences(word);
+            //var sentenceProvider = new TatoebaSentenceProvider();
+            //var sentences = await sentenceProvider.GetSentences(word);
 
             //Assert.IsTrue(words.Count() == 1, "Expected 1 words in the collection");
             //Assert.IsTrue(words.First().WordType == "noun");

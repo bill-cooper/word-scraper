@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using RussianWordScraper.Util;
 using StackExchange.Redis.Extensions.Core;
 using StackExchange.Redis.Extensions.Core.Configuration;
@@ -11,14 +12,17 @@ using System.Threading.Tasks;
 
 namespace Words
 {
-    public class WordRepository
+    public class WordRepository : IWordRepository
     {
-        private readonly FileCache _fileCacheClient;
+       // private readonly FileCache _fileCacheClient;
         private readonly StackExchangeRedisCacheClient _cacheClient;
-        private readonly WordProvider _wordProvider;
-        public WordRepository()
+        private readonly IWordProvider _wordProvider;
+        private readonly ILogger _logger;
+        public WordRepository(ILogger<WordRepository> logger, IWordProvider wordProvider)
         {
-            _fileCacheClient = new FileCache(@"..\app_data");
+            _logger = logger;
+            _logger.LogInformation("Initializing Cache client");
+            //_fileCacheClient = new FileCache(@"..\app_data");
             _cacheClient = new StackExchangeRedisCacheClient(new NewtonsoftSerializer(), new RedisConfiguration()
             {
                 AbortOnConnectFail = false,
@@ -29,11 +33,12 @@ namespace Words
                 Ssl = true,
                 Password = "Kr+scR5X1q5NYi8uJfqVSFuHWbW+5+YSja6FP2NnCus="
             });
-            _wordProvider = new WordProvider();
+            _wordProvider = wordProvider;
         }
 
         public IEnumerable<string> GetKeys()
         {
+            _logger.LogInformation("Getting all keys from word cache");
             return _cacheClient.SearchKeys("*");
         }
         public async Task<IEnumerable<WordDefinition>> GetAll()
@@ -44,12 +49,15 @@ namespace Words
         }
         public void ClearCache()
         {
+            _logger.LogInformation("Clearing word cache");
             var keys = _cacheClient.SearchKeys("*");
             _cacheClient.RemoveAll(keys);
-            _fileCacheClient.Flush();
+           // _fileCacheClient.Flush();
         }
         public async Task<IEnumerable<WordDefinition>> GetWords(string wordString, string wordType = "")
         {
+
+            _logger.LogInformation($"Getting words based on word string: {wordString}");
             wordString = wordString.Trim().ToLower().RemoveStressMarks();
             List<WordDefinition> words = null;
             if (string.IsNullOrEmpty(wordType))
@@ -69,38 +77,42 @@ namespace Words
                 if (word != null)
                     words.Add(word);
             }
-            if (words.Count() == 0)
-            {
-                if (string.IsNullOrEmpty(wordType))
-                {
-                    var cacheResult = _fileCacheClient.GetAll<WordDefinition>(new[] {
-                    $"{wordString}-verb",
-                    $"{wordString}-noun",
-                    $"{wordString}-adjective",
-                    $"{wordString}-adverb",
-                    $"{wordString}"
-                });
-                    words.AddRange(cacheResult);
-                }
-                else
-                {
-                    var word = _fileCacheClient.Get<WordDefinition>($"{wordString}-{wordType}");
-                    if (word != null)
-                        words.Add(word);
-                }
-            }
+            //if (words.Count() == 0)
+            //{
+            //    if (string.IsNullOrEmpty(wordType))
+            //    {
+            //        var cacheResult = _fileCacheClient.GetAll<WordDefinition>(new[] {
+            //        $"{wordString}-verb",
+            //        $"{wordString}-noun",
+            //        $"{wordString}-adjective",
+            //        $"{wordString}-adverb",
+            //        $"{wordString}"
+            //    });
+            //        words.AddRange(cacheResult);
+            //    }
+            //    else
+            //    {
+            //        var word = _fileCacheClient.Get<WordDefinition>($"{wordString}-{wordType}");
+            //        if (word != null)
+            //            words.Add(word);
+            //    }
+            //}
 
             if (words.Count() == 0)
             {
-                Console.WriteLine($"Cache miss for word: {wordString}");
+                _logger.LogInformation($"Cache miss for word: {wordString}");
                 try
                 {
                     words = (await _wordProvider.GetWords(wordString)).ToList();
                 }
-                catch (Exception ex) {
-                    Console.WriteLine(ex.Message);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex.Message);
                     return null;
                 }
+            }
+            else {
+                _logger.LogInformation($"Cache hit for word: {wordString}");
             }
 
             SaveWord(words);
@@ -112,7 +124,7 @@ namespace Words
         {
             foreach (var word in words)
             {
-                _fileCacheClient.Add(word.Key, word);
+                //_fileCacheClient.Add(word.Key, word);
                 _cacheClient.Add(word.Key, word);
             }
         }

@@ -14,16 +14,16 @@ namespace SampleBuilder
         static void Main(string[] args)
         {
             
-            var repo = new WordRepository();
+            //var repo = new WordRepository();
 
-            repo.ClearCache();
+            //repo.ClearCache();
 
-            //noun
-            var word = repo.GetWords("жизнь").Result;
-            //adjective
-            word = repo.GetWords("глухо́й").Result;
-            //adverb 
-            word = repo.GetWords("глу́хо").Result;
+            ////noun
+            //var word = repo.GetWords("жизнь").Result;
+            ////adjective
+            //word = repo.GetWords("глухо́й").Result;
+            ////adverb 
+            //word = repo.GetWords("глу́хо").Result;
 
 
 
@@ -39,7 +39,7 @@ namespace SampleBuilder
             //}
 
 
-            var words = repo.GetWords("глухо́й").Result;
+           // var words = repo.GetWords("глухо́й").Result;
 
             //var words = repo.GetAll().Result;
             //foreach (var word in words) {

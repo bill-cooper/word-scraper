@@ -11,7 +11,7 @@ namespace Words.Util
     {
         private static X509Certificate2 FindCertificateByThumbprint(string findValue)
         {
-            X509Store store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+            X509Store store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
             try
             {
                 store.Open(OpenFlags.ReadOnly);

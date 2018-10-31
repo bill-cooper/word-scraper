@@ -11,15 +11,21 @@ using RussianWordScraper.Document;
 using System.Text;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Words
 {
-    public class WordProvider
+    public class WordProvider : IWordProvider
     {
         private readonly ITranslator _translator;
-        public WordProvider()
+        private readonly ILogger _logger;
+        private readonly IServiceProvider _serviceProvider;
+        public WordProvider(ILogger<WordProvider> logger, ITranslator translator, IServiceProvider serviceProvider)
         {
-            _translator = new Translator(new SecretProvider());
+            _logger = logger;
+            _translator = translator;
+            _serviceProvider = serviceProvider;
         }
         public WordProvider(ITranslator translator)
         {
@@ -27,9 +33,12 @@ namespace Words
         }
         public async Task<IEnumerable<WordDefinition>> GetWords(string word, bool getSamples = true)
         {
+            _logger.LogInformation($"Getting word information for word: {word}");
             word = word.Trim().ToLower().RemoveStressMarks();
             using (var client = new HttpClient())
             {
+
+                _logger.LogInformation($"querying suggestings from openrussian.org for word: {word}");
                 var response = await client.GetAsync($"https://en.openrussian.org/suggestions?q={word}");
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadAsStringAsync();
@@ -58,7 +67,12 @@ namespace Words
                     //    info.Translation = derivate.Translation.Trim();
                 }
 
-                var composition = new Composition { Return = new ContentSegment { Url = $"https://en.openrussian.org/ru/{info.Derivate}", Select = "div.page" } };
+
+                _logger.LogInformation($"querying openrussian.org for information about word: {word}");
+                var contentSegment = _serviceProvider.GetRequiredService<ContentSegment>();
+                contentSegment.Url = $"https://en.openrussian.org/ru/{info.Derivate}";
+                contentSegment.Select = "div.page";
+                var composition = new Composition { Return = contentSegment };
                 var doc = await composition.Return.DocumentElement();
 
                 var wordHeaders = doc.QuerySelectorAll("td > span.editable, h1");
@@ -359,7 +373,12 @@ namespace Words
             foreach (var word in wordDefinition.WordForms.Select(wf => wf.Word).Union(new[] { wordDefinition.Word.Word }).Distinct())
             {
                 if (word.Split(" ").Count() > 1) continue; //skip forms with multiple words
-                var wordAudioElements = await (new Composition { Return = new ContentSegment { Url = $"https://forvo.com/word/{word}/#ru", Select = "span.play" } }).Return.DocumentElement();
+
+                var contentSegment = _serviceProvider.GetRequiredService<ContentSegment>();
+                contentSegment.Url = $"https://forvo.com/word/{word}/#ru";
+                contentSegment.Select = "span.play";
+                
+                var wordAudioElements = await (new Composition { Return = contentSegment }).Return.DocumentElement();
                 var audioSources = new List<AudioSource>();
                 foreach (var element in wordAudioElements)
                 {
@@ -379,7 +398,12 @@ namespace Words
                 }
                 audioSourceDictionary.Add(word, audioSources);
 
-                var phraseElements = await (new Composition { Return = new ContentSegment { Url = $"https://forvo.com/search/{word}/ru/", Select = "li.list-phrases" } }).Return.DocumentElement();
+
+                var contentSegmentPhrase = _serviceProvider.GetRequiredService<ContentSegment>();
+                contentSegmentPhrase.Url = $"https://forvo.com/search/{word}/ru/";
+                contentSegmentPhrase.Select = "li.list-phrases";
+
+                var phraseElements = await (new Composition { Return = contentSegmentPhrase }).Return.DocumentElement();
                 var phraseAudioElements = phraseElements.QuerySelectorAll("span.play");
 
                 var phrases = new List<Sample>();

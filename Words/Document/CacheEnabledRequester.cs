@@ -1,6 +1,7 @@
 ﻿using AngleSharp;
 using AngleSharp.Network;
 using AngleSharp.Network.Default;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using StackExchange.Redis.Extensions.Core;
 using StackExchange.Redis.Extensions.Core.Configuration;
@@ -18,12 +19,13 @@ namespace Words.Document
 {
     public class CacheEnabledRequester : IRequester
     {
+        private readonly ILogger _logger;
         private readonly IRequester _innerRequestor;
         private readonly StackExchangeRedisCacheClient _cacheClient;
-        
 
-        public CacheEnabledRequester(ISecretProvider secretProvider)
+        public CacheEnabledRequester(ISecretProvider secretProvider, ILogger<CacheEnabledRequester> logger)
         {
+            _logger = logger;
             _innerRequestor = new HttpRequester();
             _cacheClient = new StackExchangeRedisCacheClient(new NewtonsoftSerializer(), new RedisConfiguration()
             {
@@ -41,10 +43,18 @@ namespace Words.Document
             try
             {
                 if ((await _cacheClient.SearchKeysAsync(request.Address.Href)).Count() != 0)
+                {
+                    _logger.LogInformation($"Cache hit for: {request.Address.Href}");
                     return await _cacheClient.GetAsync<CachedResponse>(request.Address.Href);
+                }
 
+                _logger.LogInformation($"Cache miss for: {request.Address.Href}");
+
+                _logger.LogInformation($"requesting: {request.Address.Href}");
                 Response response = (Response)await _innerRequestor.RequestAsync(request, cancel);
+                _logger.LogInformation($"response recieved from: {request.Address.Href}");
                 var cachedRequest = new CachedResponse(response);
+                _logger.LogInformation($"caching entry: {request.Address.Href}");
                 await _cacheClient.AddAsync(request.Address.Href, cachedRequest);
 
                 return cachedRequest;
