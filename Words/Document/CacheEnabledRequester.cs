@@ -22,12 +22,13 @@ namespace Words.Document
         private readonly ILogger _logger;
         private readonly IRequester _innerRequestor;
         private readonly StackExchangeRedisCacheClient _cacheClient;
+        private static object _lock;
 
         public CacheEnabledRequester(ISecretProvider secretProvider, ILogger<CacheEnabledRequester> logger)
         {
             _logger = logger;
             _innerRequestor = new HttpRequester();
-            _cacheClient = new StackExchangeRedisCacheClient(new NewtonsoftSerializer(), new RedisConfiguration()
+            var config = new RedisConfiguration()
             {
                 AbortOnConnectFail = false,
                 Hosts = new RedisHost[]
@@ -35,29 +36,37 @@ namespace Words.Document
                     new RedisHost(){Host = "russian-word-page-outputcache.redis.cache.windows.net", Port = 6379}
                 },
                 Ssl = false,
-                Password = secretProvider.GetSecret("CachePassword/8754aa61fc9444ee957e398aa0041d8e")
-            });
+                Password = secretProvider.GetSecret("CachePassword/8754aa61fc9444ee957e398aa0041d8e"),
+                ConnectTimeout = 15000,
+
+            };
+            config.ConfigurationOptions.ResponseTimeout = 10000;
+            config.ConfigurationOptions.SyncTimeout = 10000;
+
+            _cacheClient = new StackExchangeRedisCacheClient(new NewtonsoftSerializer(), config);
+            
         }
         public async Task<IResponse> RequestAsync(IRequest request, CancellationToken cancel)
         {
             try
             {
-                if ((await _cacheClient.SearchKeysAsync(request.Address.Href)).Count() != 0)
-                {
-                    _logger.LogInformation($"Cache hit for: {request.Address.Href}");
-                    return await _cacheClient.GetAsync<CachedResponse>(request.Address.Href);
-                }
 
-                _logger.LogInformation($"Cache miss for: {request.Address.Href}");
+                    if ((await _cacheClient.SearchKeysAsync(request.Address.Href)).Count() != 0)
+                    {
+                        _logger.LogInformation($"Cache hit for: {request.Address.Href}");
+                        return await _cacheClient.GetAsync<CachedResponse>(request.Address.Href);
+                    }
 
-                _logger.LogInformation($"requesting: {request.Address.Href}");
-                Response response = (Response)await _innerRequestor.RequestAsync(request, cancel);
-                _logger.LogInformation($"response recieved from: {request.Address.Href}");
-                var cachedRequest = new CachedResponse(response);
-                _logger.LogInformation($"caching entry: {request.Address.Href}");
-                await _cacheClient.AddAsync(request.Address.Href, cachedRequest);
+                    _logger.LogInformation($"Cache miss for: {request.Address.Href}");
 
-                return cachedRequest;
+                    _logger.LogInformation($"requesting: {request.Address.Href}");
+                    Response response = (Response)await _innerRequestor.RequestAsync(request, cancel);
+                    _logger.LogInformation($"response recieved from: {request.Address.Href}");
+                    var cachedRequest = new CachedResponse(response);
+                    _logger.LogInformation($"caching entry: {request.Address.Href}");
+                    await _cacheClient.AddAsync(request.Address.Href, cachedRequest);
+
+                    return cachedRequest;
             }
             catch (Exception ex) {
                 throw;

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -8,39 +6,27 @@ using Words;
 
 namespace Api.Controllers
 {
-    [Route("api/[controller]")]
-    public class ValuesController : Controller
+    public class WordStoreController : Controller
     {
         private readonly ILogger _logger;
         private readonly IWordRepository _wordRepository;
-        private readonly IWordBank _wordBank;
-        public ValuesController(ILogger<ValuesController> logger, IWordRepository wordRepository, IWordBank wordBank) {
+        public WordStoreController(ILogger<WordStoreController> logger, IWordRepository wordRepository) {
             _logger = logger;
             _wordRepository = wordRepository;
-            _wordBank = wordBank;
         }
         // GET api/values
         [HttpGet]
-        public IEnumerable<string> Get()
+        [Route("api/wordstore/keys")]
+        public IEnumerable<string> GetKeys()
         {
-            _logger.LogInformation("Request recieved...");
+            return _wordRepository.GetCacheKeys();
+        }
 
-            
-            Task.Run(async () =>
-            {
-                _logger.LogInformation("Running Task...");
-                var words = await _wordBank.GetWordByRank(50);
-
-                foreach (var word in words.Where(w => w.Length > 2))
-                {
-                    await _wordRepository.GetWords(word);
-                }
-                _logger.LogInformation("Task Complete...");
-            }).Wait();
-
-
-
-            return new string[] { "value1", "value2", "value3" };
+        [HttpGet]
+        [Route("api/wordstore/keys/{key}")]
+        public async Task<IEnumerable<WordDefinition>> GetKey(string key)
+        {
+            return await _wordRepository.GetWordFromCache(key);
         }
 
         // GET api/values/5

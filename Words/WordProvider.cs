@@ -35,63 +35,70 @@ namespace Words
         {
             _logger.LogInformation($"Getting word information for word: {word}");
             word = word.Trim().ToLower().RemoveStressMarks();
+
+            var words = new List<WordDefinition>();
             using (var client = new HttpClient())
             {
-
-                _logger.LogInformation($"querying suggestings from openrussian.org for word: {word}");
-                var response = await client.GetAsync($"https://en.openrussian.org/suggestions?q={word}");
-                response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync();
-                var term = JsonConvert.DeserializeObject<ORTerm>(json);
-                var info = new ORWordInfo();
-
-                if (term.Words.Length > 0 && word.IsSameWord(term.Words[0].Ru))
+                try
                 {
-                    var orWord = term.Words[0];
-                    info.Word = orWord.Ru.Trim();
-                    info.StressedWord = orWord.RuAccented == string.Empty ? orWord.Ru.Trim() : WebUtility.HtmlDecode(orWord.RuAccented).Trim();
+                    _logger.LogInformation($"querying suggestings from openrussian.org for word: {word}");
+                    var response = await client.GetAsync($"https://en.openrussian.org/suggestions?q={word}");
+                    response.EnsureSuccessStatusCode();
+                    var json = await response.Content.ReadAsStringAsync();
+                    var term = JsonConvert.DeserializeObject<ORTerm>(json);
+                    var info = new ORWordInfo();
 
-                    //var translationString = "";
-                    //if (orWord.Translations.Length > 0)
-                    //    foreach (var translation in orWord.Translations[0])
-                    //        translationString += $";{translation.Trim()}";
-                    //info.Translation = translationString.Trim();
-                }
-                if (term.Derivates.Length > 0)
-                {
-                    info.Word = word.Trim();
-                    info.StressedWord = word.Trim();
-                    var derivate = term.Derivates[0];
-                    info.Derivate = derivate.BaseBare;
-                    //if (info.Translation == string.Empty)
-                    //    info.Translation = derivate.Translation.Trim();
-                }
-
-
-                _logger.LogInformation($"querying openrussian.org for information about word: {word}");
-                var contentSegment = _serviceProvider.GetRequiredService<ContentSegment>();
-                contentSegment.Url = $"https://en.openrussian.org/ru/{info.Derivate}";
-                contentSegment.Select = "div.page";
-                var composition = new Composition { Return = contentSegment };
-                var doc = await composition.Return.DocumentElement();
-
-                var wordHeaders = doc.QuerySelectorAll("td > span.editable, h1");
-                foreach (var header in wordHeaders)
-                {
-                    var wordVariant = header.TextContent.Trim();
-                    if (word.IsSameWord(wordVariant))
+                    if (term.Words.Length > 0 && word.IsSameWord(term.Words[0].Ru))
                     {
-                        info.StressedWord = wordVariant;
-                        break;
+                        var orWord = term.Words[0];
+                        info.Word = orWord.Ru.Trim();
+                        info.StressedWord = orWord.RuAccented == string.Empty ? orWord.Ru.Trim() : WebUtility.HtmlDecode(orWord.RuAccented).Trim();
+
+                        //var translationString = "";
+                        //if (orWord.Translations.Length > 0)
+                        //    foreach (var translation in orWord.Translations[0])
+                        //        translationString += $";{translation.Trim()}";
+                        //info.Translation = translationString.Trim();
                     }
+                    if (term.Derivates.Length > 0)
+                    {
+                        info.Word = word.Trim();
+                        info.StressedWord = word.Trim();
+                        var derivate = term.Derivates[0];
+                        info.Derivate = derivate.BaseBare;
+                        //if (info.Translation == string.Empty)
+                        //    info.Translation = derivate.Translation.Trim();
+                    }
+
+
+                    _logger.LogInformation($"querying openrussian.org for information about word: {word}");
+                    var contentSegment = _serviceProvider.GetRequiredService<ContentSegment>();
+                    contentSegment.Url = $"https://en.openrussian.org/ru/{info.Derivate}";
+                    contentSegment.Select = "div.page";
+                    var composition = new Composition { Return = contentSegment };
+                    var doc = await composition.Return.DocumentElement();
+
+                    var wordHeaders = doc.QuerySelectorAll("td > span.editable, h1");
+                    foreach (var header in wordHeaders)
+                    {
+                        var wordVariant = header.TextContent.Trim();
+                        if (word.IsSameWord(wordVariant))
+                        {
+                            info.StressedWord = wordVariant;
+                            break;
+                        }
+                    }
+
+
+                    var wordVersions = doc.QuerySelectorAll("div.version");
+                    foreach (var wordVersion in wordVersions)
+                        words.Add(await CreateWordDefinition(wordVersion, info, getSamples));
+
+                   
                 }
-
-                var words = new List<WordDefinition>();
-
-                var wordVersions = doc.QuerySelectorAll("div.version");
-                foreach (var wordVersion in wordVersions)
-                    words.Add(await CreateWordDefinition(wordVersion, info, getSamples));
-
+                catch (Exception ex) {
+                    _logger.LogError(ex, $"Error thrown from word provider when attempting to query information from openrussian.org for word: {word}.  Stack trace: {ex.StackTrace}");
+                }
                 return words;
             }
         }
@@ -122,14 +129,20 @@ namespace Words
 
             var infoDivContent = infoDiv.First().InnerHtml.ToLower();
 
-            var wordDetails = infoDivContent.Substring(0, infoDivContent.IndexOf("<br>")).Trim().Split(",");
+            try
+            {
+                var wordDetails = infoDivContent.Substring(0, infoDivContent.IndexOf("<br>")).Trim().Split(",");
 
-            if (wordDetails.Length == 0) throw new Exception($"No word details found for word: {wordDefinition.Word.Word}");
+                if (wordDetails.Length == 0) throw new Exception($"No word details found for word: {wordDefinition.Word.Word}");
 
-            wordDefinition.WordType = wordDetails[0].Trim();
+                wordDefinition.WordType = wordDetails[0].Trim();
 
-            for(int i = 1; i< wordDetails.Length; i++)
-                wordDefinition.Tags.Add(wordDetails[i].Trim());
+                for (int i = 1; i < wordDetails.Length; i++)
+                    wordDefinition.Tags.Add(wordDetails[i].Trim());
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Could not find detail information for word: {info.StressedWord} ");
+            }
 
             //nouns and adjectives
             var declensionDiv = doc.QuerySelectorAll("div.declension");
@@ -430,7 +443,7 @@ namespace Words
                             {
                                 AudioSource = new AudioSource { Uri = uri },
                                 SampleText = phraseText,
-                                Translation = await _translator.Translate(phraseText)
+                                //Translation = await _translator.Translate(phraseText) //google translation API is not working because of rate limit or something
                             });
                         }
                     }

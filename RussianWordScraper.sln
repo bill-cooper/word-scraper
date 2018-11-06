@@ -11,7 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleBuilder", "SampleBuil
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Words.Tests", "Words.Tests\Words.Tests.csproj", "{7D1757B4-5B4A-4B0D-BD21-1584F93EE234}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Api", "Api\Api.csproj", "{DD7BB601-2E04-4ECB-B5D4-2A686658896A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Api", "Api\Api.csproj", "{DD7BB601-2E04-4ECB-B5D4-2A686658896A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebJob", "WebJob\WebJob.csproj", "{7E7F9157-9A10-4672-ADE9-3216BC2202D8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{DD7BB601-2E04-4ECB-B5D4-2A686658896A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DD7BB601-2E04-4ECB-B5D4-2A686658896A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DD7BB601-2E04-4ECB-B5D4-2A686658896A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E7F9157-9A10-4672-ADE9-3216BC2202D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E7F9157-9A10-4672-ADE9-3216BC2202D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E7F9157-9A10-4672-ADE9-3216BC2202D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E7F9157-9A10-4672-ADE9-3216BC2202D8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
